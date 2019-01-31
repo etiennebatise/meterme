@@ -1,60 +1,34 @@
 module HelloWorld exposing (..)
 
 import Browser
-import Html exposing (Html, div, button, text)
+import Html exposing (Html, div, button, text, input)
 import Html.Events exposing (onClick)
 
 
-type Msg = IncrementSquat | DecrementSquat
-         | IncrementPullUp | DecrementPullUp
-         | IncrementBenchPress | DecrementBenchPress
-         | IncrementOverheadPress | DecrementOverheadPress
+type Msg = CreateSession
 
-type alias Model = {
-        squat : Int
-      , pullUp : Int
-      , benchPress : Int
-      , overheadPress : Int
-    }
+type Exercise = Squat Series | PullUp Series | BenchPress Series | OverheadPress Series
 
-update msg model =
-    case msg of
-        IncrementSquat ->
-            {model | squat = model.squat + 1}
-        DecrementSquat ->
-            {model | squat = model.squat - 1}
-        IncrementPullUp ->
-            {model | pullUp = model.pullUp  + 1}
-        DecrementPullUp ->
-            {model | pullUp = model.pullUp  - 1}
-        IncrementBenchPress ->
-            {model | benchPress = model.benchPress  + 1}
-        DecrementBenchPress ->
-            {model | benchPress = model.benchPress  - 1}
-        IncrementOverheadPress ->
-            {model | overheadPress = model.overheadPress  + 1}
-        DecrementOverheadPress ->
-            {model | overheadPress = model.overheadPress  - 1}
+type alias Series = { numberOfReps : Int
+                    , weight : Int
+                    }
 
-opTemplate opLabel msg = button [onClick msg] [text opLabel]
 
-incTemplate = opTemplate "+"
+type alias Model = List Exercise
 
-decTemplate = opTemplate "-"
+update : Msg -> Model -> Model
+update msg model = case msg of
+                       CreateSession -> [Squat {numberOfReps = 0, weight = 0}]
 
-viewTemplate name value msgA msgB = div []
-                                    [ div [] [text (String.fromInt value)]
-                                    , decTemplate msgA
-                                    , incTemplate msgB
-                                    ]
+createSessionButton = button [onClick CreateSession] [text "Create Session"]
 
-view model = div []
-             [ viewTemplate "Squats" model.squat DecrementSquat IncrementSquat
-             , viewTemplate "PullUps" model.pullUp DecrementPullUp IncrementPullUp
-             , viewTemplate "BenchPress" model.benchPress DecrementBenchPress IncrementBenchPress
-             , viewTemplate "OverheadPresss" model.overheadPress DecrementOverheadPress IncrementOverheadPress
-             ]
+view : Model -> Html Msg
+view model = case model of
+                 [] -> div [] [createSessionButton]
+                 [Squat e] -> div [] [text "Squat:", text (String.fromInt e.numberOfReps), text (String.fromInt e.weight)]
+                 l -> div [] [text "todo"]
 
-init = { squat = 0, pullUp = 0, benchPress = 0, overheadPress = 0 }
+init : Model
+init = []
 
 main = Browser.sandbox { init=init, update=update, view=view }
