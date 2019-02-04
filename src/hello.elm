@@ -1,6 +1,6 @@
 module HelloWorld exposing (Exercise(..), Model, Msg(..), Series, createSessionButton, init, main, selectExercise, update, view)
 
-import List exposing (map, range)
+import List exposing (map, range, append)
 import Browser
 import Html exposing (Html, button, div, input, select, text, option)
 import Html.Attributes exposing (value)
@@ -8,7 +8,7 @@ import Html.Events exposing (onClick)
 
 
 type Msg
-    = CreateSession
+    = CreateSession | AddSeries
 
 
 type Exercise
@@ -33,6 +33,9 @@ update msg model =
     case msg of
         CreateSession ->
             [ Squat { numberOfReps = 0, weight = 0 } ]
+        AddSeries ->
+            append model [ Squat { numberOfReps = 0, weight = 0 } ]
+
 
 
 createSessionButton =
@@ -53,8 +56,12 @@ selectNumberOfReps =
     select [] (map (\i -> let s = String.fromInt i in option [value s] [text s]) (range 1 12))
 
 selectWeight : Html msg
-selectWeight = 
+selectWeight =
     select [] (map (\i -> let s = String.fromInt i in option [value s] [text s]) (range -30 100))
+
+addSeries : Html Msg
+addSeries =
+    button [ onClick AddSeries ] [ text "+" ]
 
 view : Model -> Html Msg
 view model =
@@ -63,10 +70,10 @@ view model =
             div [] [ createSessionButton ]
 
         [ Squat e ] ->
-            div [] [ selectExercise, selectNumberOfReps, selectWeight ]
+            div [] [ selectExercise, selectNumberOfReps, selectWeight , addSeries ]
 
         l ->
-            div [] [ text "todo" ]
+            div [] [ text "TODO" ]
 
 
 init : Model
