@@ -17,6 +17,7 @@ stdenv.mkDerivation rec {
 
   buildInputs = [
   elm
+  elm-format
     # libpqxx
     # openssl
     # imagemagick
