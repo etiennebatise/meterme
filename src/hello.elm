@@ -1,23 +1,17 @@
-module HelloWorld exposing (Exercise(..), Model, Msg(..), Series, createSessionButton, init, main, selectExercise, update, view)
+module HelloWorld exposing (Model, Msg(..), Series, init, main, update, view)
 
 import Browser
-import Html exposing (Html, button, div, input, option, select, text)
+import Html exposing (Attribute, Html, button, div, h1, input, option, select, text, br)
 import Html.Attributes exposing (selected, value)
-import Html.Events exposing (onClick)
-import List exposing (append, concat, map, range)
+import Html.Events exposing (onClick, onInput)
+import List exposing (append, concat, indexedMap, length, map, range, intersperse)
+import Maybe
 
 
 type Msg
-    = CreateSession
-    | AddSeries
-    | ValidateForm
-
-
-type Exercise
-    = Squat Series
-    | PullUp Series
-    | BenchPress Series
-    | OverheadPress Series
+    = UpdateExercice Int String
+    | CreateSession
+    | AddExercise
 
 
 type alias Series =
@@ -26,30 +20,56 @@ type alias Series =
     }
 
 
-type alias Model =
+type alias Training =
+    List Series
+
+
+type alias Exercise =
+    { name : String
+    , training : Training
+    }
+
+
+
+-- type Session = (List Training, Date, Comment, other stuff)
+
+
+type alias Session =
     List Exercise
+
+
+type alias Model =
+    Session
+
+
+emptyExercise : String -> Exercise
+emptyExercise name =
+    Exercise name []
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
+        AddExercise -> append model [ emptyExercise "squat" ]
+
+        UpdateExercice index name ->
+            indexedMap
+                (\i e ->
+                    if i == index then
+                        { e | name = name }
+
+                    else
+                        e
+                )
+                model
+
         CreateSession ->
-            [ Squat { numberOfReps = 0, weight = 0 } ]
-
-        AddSeries ->
-            append model [ Squat { numberOfReps = 0, weight = 0 } ]
-
-        ValidateForm ->
-            []
+            [ Exercise "squat" [] ]
 
 
-createSessionButton =
-    button [ onClick CreateSession ] [ text "Create Session" ]
-
-
-selectExercise : Html msg
-selectExercise =
-    select []
+viewExercise : List (Attribute msg) -> Html msg
+viewExercise attrs =
+    select attrs
         [ option [ value "squat" ] [ text "Squat" ]
         , option [ value "pullup" ] [ text "Pull-Up" ]
         , option [ value "benchpress" ] [ text "Bench-Press" ]
@@ -57,75 +77,33 @@ selectExercise =
         ]
 
 
-selectNumberOfReps : Int -> Html msg
-selectNumberOfReps default =
-    select []
-        (map
-            (\i ->
-                let
-                    s =
-                        String.fromInt i
-                in
-                option [ value s, selected (i == default) ] [ text s ]
-            )
-            (range 1 12)
-        )
-
-
-selectWeight : Int -> Html msg
-selectWeight default =
-    select []
-        (map
-            (\i ->
-                let
-                    s =
-                        String.fromInt i
-                in
-                option [ value s, selected (i == default) ] [ text s ]
-            )
-            (range -30 100)
-        )
-
-
-addSeries : Html Msg
-addSeries =
-    button [ onClick AddSeries ] [ text "+" ]
-
-
-row : Int -> Int -> List (Html Msg)
-row reps weight =
-    [ selectExercise, selectNumberOfReps reps, selectWeight weight, addSeries ]
-
-
-validateButton : Html Msg
-validateButton =
-    button [ onClick ValidateForm ] [ text "Validate" ]
-
-
 view : Model -> Html Msg
 view model =
     case model of
         [] ->
-            div [] [ createSessionButton ]
-
-        [ Squat e ] ->
-            div [] (row e.numberOfReps e.weight)
+            div [] [ button [ onClick CreateSession ] [ text "Create" ] ]
 
         l ->
-            div [] <|
-                append
-                    (map
-                        (\m ->
-                            case m of
-                                Squat n ->
-                                    div [] (row n.numberOfReps n.weight)
+            let
+                created =
+                    indexedMap (\i e -> viewExercise [ value e.name, onInput (UpdateExercice i) ]) l
 
-                                z ->
-                                    text "Todo"
-                        )
-                        l
-                    )
-                    [ validateButton ]
+                new =
+                     button [onClick AddExercise] [ text "Add exercice"]
+            in
+            div [] <| intersperse (br [] []) <| append created [ new ]
+
+
+
+-- The hole selectWeight, Reps... is wrong. You need to somehow pass in the model
+-- This example shows it a bit
+-- [ input
+--   [ value newComment.title
+--   , onInput (\v -> toUpdateComment { newComment | title = v })
+--   ]
+--   []
+-- newComment is the model.
+-- I think the right way here is to delete all of the view logic and rewrite it with the "onclick" thing in mind
 
 
 init : Model
