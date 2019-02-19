@@ -8,16 +8,30 @@ import List exposing (append, concat, indexedMap, intersperse, length, map, rang
 import Maybe
 
 
+type alias Series =
+    { numberOfReps : Int
+    , weight : Int
+    }
+
+
+
+type alias Exercise =
+    { name : String
+    , training : List Series
+    }
+
+
 type Msg
     = NoOp
     | CreateUnscheduledSession
     | ScheduleSession String
+    | UpdateExerciseName Int String
 
 
 type Model
     = NoData
     | UnscheduledEmptySession
-    | ScheduledEmptySession String
+    | ScheduledSession String Exercise
 
 
 update : Msg -> Model -> Model
@@ -30,17 +44,39 @@ update msg model =
             UnscheduledEmptySession
 
         ScheduleSession date ->
-            ScheduledEmptySession date
+            case model of
+                NoData -> NoData
+                UnscheduledEmptySession ->
+                    ScheduledSession date (Exercise "squat" [])
+                ScheduledSession _ l -> ScheduledSession date l
+
+        UpdateExerciseName index name ->
+            case model of
+                NoData -> NoData
+                UnscheduledEmptySession -> model
+                ScheduledSession d l ->
+                   ScheduledSession d (Exercise name [])
+
+
 
 
 datePicker : Maybe String -> Html Msg
 datePicker default =
     input
         [ type_ "date"
-        , onInput ScheduleSession
+        , onInput <| \d -> ScheduleSession d
         , value <| Maybe.withDefault "" default
         ]
         []
+
+
+selectExercise : Html Msg
+selectExercise =
+    select
+        [ onInput <| UpdateExerciseName 0 ]
+        [ option [ value "squat" ] [ text "Squats" ]
+        , option [ value "pullup" ] [ text "Pull-ups" ]
+        ]
 
 
 view : Model -> Html Msg
@@ -52,8 +88,12 @@ view model =
         UnscheduledEmptySession ->
             datePicker Nothing
 
-        ScheduledEmptySession date ->
-            div [] [ datePicker (Just date), button [] [ text "Foo" ] ]
+        ScheduledSession date l ->
+            div []
+                [ datePicker (Just date)
+                , br [] []
+                , selectExercise
+                ]
 
 
 init : Model
