@@ -4,10 +4,11 @@ import Browser
 import Html exposing (Attribute, Html, br, button, div, h1, input, option, select, text, form, label)
 import Html.Attributes exposing (selected, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
-import List exposing (append, concat, indexedMap, intersperse, length, map, range)
+import List exposing (append, concat, indexedMap, intersperse, length, map, range, take, head)
 import Set exposing (fromList, toList, diff)
 import Maybe
 import List.Extra exposing (updateAt)
+import Maybe.Extra exposing (unwrap)
 
 
 type alias Series =
@@ -26,7 +27,7 @@ type alias Exercise =
 type Msg
     = NoOp
     | SubmitForm
-    | AddExercise String
+    | AddExercise
     | ScheduleSession String
     | UpdateExerciseName Int String
 
@@ -49,8 +50,12 @@ update msg model =
         ScheduleSession date ->
                     { model | date = date }
 
-        AddExercise name ->
-                    { model | session = append model.session [Exercise name []]}
+        AddExercise ->
+                    let
+                        selected = map (.name) model.session
+                        newExercise = unwrap [] (\n -> [Exercise n []]) <| head <| remainingExercises selected
+                    in
+                        { model | session = append model.session newExercise }
 
         UpdateExerciseName index name ->
                     { model | session = updateAt index (\e -> {e | name = name }) model.session}
@@ -70,6 +75,10 @@ datePicker date =
 exerciseList : List String
 exerciseList = ["squat", "pull_up", "bench_press", "overhead_press"]
 
+
+remainingExercises : List String -> List String 
+remainingExercises l = toList <| diff (fromList exerciseList) (fromList l)
+
 selectExercise : Int -> Exercise -> Html Msg
 selectExercise i e =
     select
@@ -77,21 +86,16 @@ selectExercise i e =
         , value e.name ]
         (map (\x -> option [value x, selected (x == e.name)] [text x]) exerciseList)
 
-addExerciseButton : List Exercise -> Html Msg
-addExerciseButton s =
-    let alreadySelected =  fromList <| map (\e -> e.name) s
-        remaining = diff (fromList ["squat", "pull_up", "bench_press", "overhead_press"]) alreadySelected
-    in
-        select
-            [ onInput AddExercise ]
-            (map (\x -> option [value x] [text x]) <| toList remaining)
+
+addExerciseButton : Html Msg
+addExerciseButton = button [ onClick AddExercise ] [ text "+"]
+
 
 view : Model -> Html Msg
 view model =
     let dateLabel = label [] [ datePicker model.date ]
         exercises = indexedMap (\i e -> label [] [selectExercise i e]) model.session
-        addNew = addExerciseButton model.session
-        content = append [ dateLabel ] <| append exercises [ br [] [],  addNew ]
+        content = intersperse (br [] []) <| append [ dateLabel ] <| append exercises [ addExerciseButton ]
     in
       form
           [ onSubmit SubmitForm ]
