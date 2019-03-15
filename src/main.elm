@@ -86,18 +86,16 @@ addExerciseButton s =
             [ onInput AddExercise ]
             (map (\x -> option [value x] [text x]) <| toList remaining)
 
-
 view : Model -> Html Msg
 view model =
-    form
-        [ onSubmit SubmitForm ]
-        [ label []
-                [ datePicker model.date ]
-        , label []
-            <| indexedMap selectExercise model.session
-        , br [] []
-        , addExerciseButton model.session
-        ]
+    let dateLabel = label [] [ datePicker model.date ]
+        exercises = indexedMap (\i e -> label [] [selectExercise i e]) model.session
+        addNew = addExerciseButton model.session
+        content = append [ dateLabel ] <| append exercises [ br [] [],  addNew ]
+    in
+      form
+          [ onSubmit SubmitForm ]
+          content
 
 init : Model
 init = { date = "", session = [] }
