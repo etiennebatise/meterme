@@ -5,6 +5,7 @@ import Html exposing (Attribute, Html, br, button, div, h1, input, option, selec
 import Html.Attributes exposing (selected, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import List exposing (append, concat, indexedMap, intersperse, length, map, range)
+import Set exposing (fromList, toList, diff)
 import Maybe
 import List.Extra exposing (updateAt)
 
@@ -25,6 +26,7 @@ type alias Exercise =
 type Msg
     = NoOp
     | SubmitForm
+    | AddExercise String
     | ScheduleSession String
     | UpdateExerciseName Int String
 
@@ -47,6 +49,9 @@ update msg model =
         ScheduleSession date ->
                     { model | date = date }
 
+        AddExercise name ->
+                    { model | session = append model.session [Exercise name []]}
+
         UpdateExerciseName index name ->
                     { model | session = updateAt index (\e -> {e | name = name }) model.session}
 
@@ -62,14 +67,24 @@ datePicker date =
         ]
         []
 
+exerciseList : List String
+exerciseList = ["squat", "pull_up", "bench_press", "overhead_press"]
 
-selectExercise : Html Msg
-selectExercise =
+selectExercise : Int -> Exercise -> Html Msg
+selectExercise i e =
     select
-        [ onInput <| UpdateExerciseName 0 ]
-        [ option [ value "squat" ] [ text "Squats" ]
-        , option [ value "pullup" ] [ text "Pull-ups" ]
-        ]
+        [ onInput <| UpdateExerciseName i
+        , value e.name ]
+        (map (\x -> option [value x, selected (x == e.name)] [text x]) exerciseList)
+
+addExerciseButton : List Exercise -> Html Msg
+addExerciseButton s =
+    let alreadySelected =  fromList <| map (\e -> e.name) s
+        remaining = diff (fromList ["squat", "pull_up", "bench_press", "overhead_press"]) alreadySelected
+    in
+        select
+            [ onInput AddExercise ]
+            (map (\x -> option [value x] [text x]) <| toList remaining)
 
 
 view : Model -> Html Msg
@@ -79,7 +94,9 @@ view model =
         [ label []
                 [ datePicker model.date ]
         , label []
-                [selectExercise]
+            <| indexedMap selectExercise model.session
+        , br [] []
+        , addExerciseButton model.session
         ]
 
 init : Model
