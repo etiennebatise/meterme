@@ -1,11 +1,12 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
-import Html exposing (Attribute, Html, br, button, div, h1, input, option, select, text)
+import Html exposing (Attribute, Html, br, button, div, h1, input, option, select, text, form, label)
 import Html.Attributes exposing (selected, type_, value)
-import Html.Events exposing (onClick, onInput)
+import Html.Events exposing (onClick, onInput, onSubmit)
 import List exposing (append, concat, indexedMap, intersperse, length, map, range)
 import Maybe
+import List.Extra exposing (updateAt)
 
 
 type alias Series =
@@ -23,15 +24,15 @@ type alias Exercise =
 
 type Msg
     = NoOp
-    | CreateUnscheduledSession
+    | SubmitForm
     | ScheduleSession String
     | UpdateExerciseName Int String
 
 
-type Model
-    = NoData
-    | UnscheduledEmptySession
-    | ScheduledSession String Exercise
+type alias Model =
+    { date : String
+    , session : List Exercise
+    }
 
 
 update : Msg -> Model -> Model
@@ -40,32 +41,24 @@ update msg model =
         NoOp ->
             model
 
-        CreateUnscheduledSession ->
-            UnscheduledEmptySession
+        SubmitForm
+            -> model
 
         ScheduleSession date ->
-            case model of
-                NoData -> NoData
-                UnscheduledEmptySession ->
-                    ScheduledSession date (Exercise "squat" [])
-                ScheduledSession _ l -> ScheduledSession date l
+                    { model | date = date }
 
         UpdateExerciseName index name ->
-            case model of
-                NoData -> NoData
-                UnscheduledEmptySession -> model
-                ScheduledSession d l ->
-                   ScheduledSession d (Exercise name [])
+                    { model | session = updateAt index (\e -> {e | name = name }) model.session}
 
 
 
 
-datePicker : Maybe String -> Html Msg
-datePicker default =
+datePicker : String -> Html Msg
+datePicker date =
     input
         [ type_ "date"
         , onInput <| \d -> ScheduleSession d
-        , value <| Maybe.withDefault "" default
+        , value date
         ]
         []
 
@@ -81,24 +74,16 @@ selectExercise =
 
 view : Model -> Html Msg
 view model =
-    case model of
-        NoData ->
-            button [ onClick CreateUnscheduledSession ] [ text "Ajouter une session" ]
-
-        UnscheduledEmptySession ->
-            datePicker Nothing
-
-        ScheduledSession date l ->
-            div []
-                [ datePicker (Just date)
-                , br [] []
-                , selectExercise
-                ]
-
+    form
+        [ onSubmit SubmitForm ]
+        [ label []
+                [ datePicker model.date ]
+        , label []
+                [selectExercise]
+        ]
 
 init : Model
-init =
-    NoData
+init = { date = "", session = [] }
 
 
 main =
