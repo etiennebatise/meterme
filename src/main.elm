@@ -4,10 +4,10 @@ import Browser
 import Html exposing (Attribute, Html, br, button, div, h1, input, option, select, text, form, label)
 import Html.Attributes exposing (selected, type_, value)
 import Html.Events exposing (onClick, onInput, onSubmit)
-import List exposing (append, concat, indexedMap, intersperse, length, map, range, take, head)
+import List exposing (append, concat, indexedMap, intersperse, length, map, range, take, head, drop, reverse)
 import Set exposing (fromList, toList, diff)
 import Maybe
-import List.Extra exposing (updateAt)
+import List.Extra exposing (updateAt, indexedFoldr)
 import Maybe.Extra exposing (unwrap)
 
 
@@ -76,26 +76,34 @@ exerciseList : List String
 exerciseList = ["squat", "pull_up", "bench_press", "overhead_press"]
 
 
-remainingExercises : List String -> List String 
+remainingExercises : List String -> List String
 remainingExercises l = toList <| diff (fromList exerciseList) (fromList l)
 
-selectExercise : Int -> Exercise -> Html Msg
-selectExercise i e =
+selectExercise : Int -> Exercise -> List String -> Html Msg
+selectExercise i e l=
     select
         [ onInput <| UpdateExerciseName i
         , value e.name ]
-        (map (\x -> option [value x, selected (x == e.name)] [text x]) exerciseList)
+        (map (\x -> option [value x, selected (x == e.name)] [text x]) l)
 
 
 addExerciseButton : Html Msg
 addExerciseButton = button [ onClick AddExercise ] [ text "+"]
 
+selectExs : List Exercise -> List (Html Msg)
+selectExs exs =
+    let
+         names = map (.name) exs
+         remaining i = remainingExercises <| take i names
+         go i e l = append l [selectExercise i e (remaining i)]
+    in reverse <| indexedFoldr go [] exs
+
 
 view : Model -> Html Msg
 view model =
     let dateLabel = label [] [ datePicker model.date ]
-        exercises = indexedMap (\i e -> label [] [selectExercise i e]) model.session
-        content = intersperse (br [] []) <| append [ dateLabel ] <| append exercises [ addExerciseButton ]
+        exs = selectExs model.session
+        content = intersperse (br [] []) <| append [ dateLabel ] <| append exs [ addExerciseButton ]
     in
       form
           [ onSubmit SubmitForm ]
