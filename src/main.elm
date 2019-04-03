@@ -1,21 +1,22 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
-import Html exposing (Attribute, Html, br, button, div, form, h1, input, label, option, select, text)
-import Html.Attributes exposing (selected, type_, value, name)
+import Html exposing (Attribute, Html, br, button, div, form, h1, input, label, option, select, text, datalist)
+import Html.Attributes exposing (name, selected, type_, value, max, min, step, list, for, id)
 import Html.Events exposing (onClick, onInput, onSubmit)
 import List exposing (append, concat, drop, head, indexedMap, intersperse, length, map, range, repeat, reverse, singleton, take)
 import List.Extra as ListE
 import Maybe as Maybe
 import Maybe.Extra as MaybeE
 import Set exposing (diff, fromList, toList)
-import String exposing (toInt, fromInt)
+import String as Str
 
 
 type alias Series =
     { reps : Int
     , weight : Int
     }
+
 
 type alias Exercise =
     { name : String
@@ -65,10 +66,11 @@ update msg model =
             { model | session = ListE.updateAt index (\e -> { e | name = name }) model.session }
 
         UpdateExerciseSeriesReps ei si v ->
-            { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> {s | reps = Maybe.withDefault 0 <| toInt v}) e.series }) model.session }
+            { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> { s | reps = Maybe.withDefault 0 <| Str.toInt v }) e.series }) model.session }
 
         UpdateExerciseSeriesWeight ei si v ->
-            { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> {s | weight = Maybe.withDefault 0 <| toInt v}) e.series }) model.session }
+            { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> { s | weight = Maybe.withDefault 0 <| Str.toInt v }) e.series }) model.session }
+
 
 exercise : String -> Exercise
 exercise n =
@@ -99,24 +101,30 @@ remainingExercises : List String -> List String
 remainingExercises l =
     toList <| diff (fromList exerciseList) (fromList l)
 
-
 viewSeries : Int -> Int -> Series -> Html Msg
 viewSeries ei si s =
-    div []
-        [ input [ type_ "number", name "reps", value <| fromInt s.reps, onInput <| UpdateExerciseSeriesReps ei si] []
-        , input [ type_ "number", name "weight", value <| fromInt s.weight, onInput <| UpdateExerciseSeriesWeight ei si] []
-        ]
+    let
+        minReps = 0
+        maxReps = 12
+    in
+        div []
+            [ input [ type_ "range", name "reps", max <| Str.fromInt maxReps, min <| Str.fromInt minReps, value <| Str.fromInt s.reps, onInput <| UpdateExerciseSeriesReps ei si ] []
+            , text <| Str.fromInt s.reps
+            , input [ type_ "number", name "weight", min "0", value <| Str.fromInt s.weight, onInput <| UpdateExerciseSeriesWeight ei si ] []
+            ]
+
 
 viewExercise : Int -> Exercise -> Html Msg
 viewExercise i e =
     div
         []
-        <| append
+    <|
+        append
             [ select
-                  [ onInput <| UpdateExerciseName i
-                  , value e.name
-                  ]
-                  (map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
+                [ onInput <| UpdateExerciseName i
+                , value e.name
+                ]
+                (map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
             ]
             (indexedMap (viewSeries i) e.series)
 
