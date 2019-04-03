@@ -3,6 +3,7 @@ module Main exposing (Model, Msg(..), init, main, update, view)
 import Browser
 import Html exposing (Attribute, Html, br, button, div, form, h1, input, label, option, select, text, datalist)
 import Html.Attributes exposing (name, selected, type_, value, max, min, step, list, for, id)
+import Html.Attributes as Attr
 import Html.Events exposing (onClick, onInput, onSubmit)
 import List exposing (append, concat, drop, head, indexedMap, intersperse, length, map, range, repeat, reverse, singleton, take)
 import List.Extra as ListE
@@ -133,6 +134,10 @@ addExerciseButton : Html Msg
 addExerciseButton =
     button [ onClick AddExercise ] [ text "+" ]
 
+addSendButton : Html Msg
+addSendButton =
+    button [ type_ "submit", Attr.form "workout-form"] [ text "OK" ]
+
 
 viewExercises : List Exercise -> List (Html Msg)
 viewExercises exs =
@@ -155,11 +160,19 @@ view model =
         exercises =
             viewExercises model.session
 
+        modifierButton =
+            if length model.session == 4
+              then addSendButton
+              else addExerciseButton
+
         content =
-            intersperse (br [] []) <| append [ dateLabel ] <| append exercises [ addExerciseButton ]
+            [ div [] [ dateLabel ]
+            , div [] exercises 
+            , div [] [ modifierButton ]
+            ]
     in
     form
-        [ onSubmit SubmitForm ]
+        [ id "workout-form", onSubmit SubmitForm ]
         content
 
 
