@@ -126,7 +126,13 @@ viewSeries ei si s =
         maxReps = 12
     in
         div []
-            [ input
+            [  input
+                  [ type_ "number"
+                  , name "weight"
+                  , Attr.min "0"
+                  , value <| Str.fromInt s.weight
+                  , onInput <| UpdateExerciseSeriesWeight ei si ] []
+            ,  input
                   [ type_ "range"
                   , name "reps"
                   , Attr.max <| Str.fromInt maxReps
@@ -135,12 +141,6 @@ viewSeries ei si s =
                   , onInput <| UpdateExerciseSeriesReps ei si ]
                   []
             , text <| Str.fromInt s.reps
-            , input
-                  [ type_ "number"
-                  , name "weight"
-                  , Attr.min "0"
-                  , value <| Str.fromInt s.weight
-                  , onInput <| UpdateExerciseSeriesWeight ei si ] []
             ]
 
 
