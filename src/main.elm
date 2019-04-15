@@ -5,6 +5,8 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Attributes as Attr
 import Html.Events exposing (..)
+import Http
+import Json.Encode as Encode
 import List exposing (..)
 import List.Extra as ListE
 import Maybe as Maybe
@@ -14,6 +16,8 @@ import Platform.Cmd as Cmd
 import Platform.Sub as Sub
 import Set exposing (..)
 import String as Str
+
+import Debug
 
 
 type alias Series =
@@ -36,6 +40,7 @@ type Msg
     | UpdateExerciseName Int String
     | UpdateExerciseSeriesReps Int Int String
     | UpdateExerciseSeriesWeight Int Int String
+    | Uploaded (Result Http.Error ())
 
 
 type alias Model =
@@ -43,7 +48,6 @@ type alias Model =
     , session : List Exercise
     }
 
-    
 
 update : Msg -> Model -> (Model, Cmd.Cmd Msg)
 update msg model =
@@ -52,7 +56,13 @@ update msg model =
             (model, Cmd.none)
 
         SubmitForm ->
-            (model, Cmd.none)
+            ( model
+            , Http.post
+                { url = "http://localhost:80/anything"
+                , body = Http.jsonBody <| encodeModel model
+                , expect = Http.expectWhatever Uploaded
+                }
+            )
 
         ScheduleSession date ->
             let
@@ -88,7 +98,24 @@ update msg model =
                 m = { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> { s | weight = Maybe.withDefault 0 <| Str.toInt v }) e.series }) model.session }
             in
                 (m, Cmd.none)
+        Uploaded _ -> ({model | session = []}, let a = Debug.log "debug" model in Cmd.none)
 
+encodeModel : Model -> Encode.Value
+encodeModel m = Encode.object
+                [ ("date", Encode.string m.date)
+                , ("session", Encode.list encodeExercise m.session)
+                ]
+
+encodeExercise : Exercise -> Encode.Value
+encodeExercise e = Encode.object
+                   [ ("name", Encode.string e.name)
+                   , ("series", Encode.list encodeSeries e.series)
+                   ]
+encodeSeries : Series -> Encode.Value
+encodeSeries s = Encode.object
+                 [ ("weight", Encode.int s.weight)
+                 , ("reps", Encode.int s.reps)
+                 ]
 
 exercise : String -> Exercise
 exercise n =
@@ -194,15 +221,17 @@ view model =
               then addSendButton
               else addExerciseButton
 
-        content =
+        formContent =
             [ div [] [ dateLabel ]
             , div [] exercises
-            , div [] [ modifierButton ]
             ]
-    in
-    Html.form
-        [ id "workout-form", onSubmit SubmitForm ]
-        content
+
+        content = div
+                  []
+                  [ Html.form [ id "workout-form" ] formContent
+                  , div [] [ modifierButton ]
+                  ]
+    in content
 
 
 init : Model
