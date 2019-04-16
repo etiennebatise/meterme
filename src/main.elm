@@ -30,14 +30,19 @@ type alias Exercise =
     }
 
 
+type SessionPart
+    = Date
+    | NewExercise
+    | ExerciseName Int
+    | SeriesReps Int Int
+    | SeriesWeight Int Int
+
+
 type Msg
     = NoOp
     | SubmitForm
     | AddExercise
-    | ScheduleSession String
-    | UpdateExerciseName Int String
-    | UpdateExerciseSeriesReps Int Int String
-    | UpdateExerciseSeriesWeight Int Int String
+    | UpdateSession SessionPart String
     | Uploaded (Result Http.Error ())
 
 
@@ -62,13 +67,6 @@ update msg model =
                 }
             )
 
-        ScheduleSession date ->
-            let
-                m =
-                    { model | date = date }
-            in
-            ( m, Cmd.none )
-
         AddExercise ->
             let
                 selected =
@@ -82,27 +80,6 @@ update msg model =
             in
             ( m, Cmd.none )
 
-        UpdateExerciseName index name ->
-            let
-                m =
-                    { model | session = ListE.updateAt index (\e -> { e | name = name }) model.session }
-            in
-            ( m, Cmd.none )
-
-        UpdateExerciseSeriesReps ei si v ->
-            let
-                m =
-                    { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> { s | reps = Maybe.withDefault 0 <| Str.toInt v }) e.series }) model.session }
-            in
-            ( m, Cmd.none )
-
-        UpdateExerciseSeriesWeight ei si v ->
-            let
-                m =
-                    { model | session = ListE.updateAt ei (\e -> { e | series = ListE.updateAt si (\s -> { s | weight = Maybe.withDefault 0 <| Str.toInt v }) e.series }) model.session }
-            in
-            ( m, Cmd.none )
-
         Uploaded _ ->
             ( { model | session = [] }
             , let
@@ -111,6 +88,38 @@ update msg model =
               in
               Cmd.none
             )
+
+        UpdateSession part value ->
+            ( updateModel model part value, Cmd.none )
+
+
+updateModel : Model -> SessionPart -> String -> Model
+updateModel model part value =
+    case part of
+        Date ->
+            { model | date = value }
+
+        ExerciseName index ->
+            { model | session = ListE.updateAt index (\e -> { e | name = value }) model.session }
+
+        SeriesReps eIndex sIndex ->
+            { model | session = ListE.updateAt eIndex (\e -> { e | series = ListE.updateAt sIndex (\s -> { s | reps = Maybe.withDefault 0 <| Str.toInt value }) e.series }) model.session }
+
+        SeriesWeight eIndex sIndex ->
+            { model | session = ListE.updateAt eIndex (\e -> { e | series = ListE.updateAt sIndex (\s -> { s | weight = Maybe.withDefault 0 <| Str.toInt value }) e.series }) model.session }
+
+        NewExercise ->
+            let
+                selected =
+                    List.map .name model.session
+
+                newExercise =
+                    MaybeE.unwrap [] (List.singleton << exercise) <| head <| remainingExercises selected
+
+                m =
+                    { model | session = append model.session newExercise }
+            in
+            m
 
 
 encodeModel : Model -> Encode.Value
@@ -151,7 +160,7 @@ datePicker : String -> Html Msg
 datePicker date =
     input
         [ type_ "date"
-        , onInput <| \d -> ScheduleSession d
+        , onInput <| \d -> UpdateSession Date d
         , value date
         ]
         []
@@ -182,7 +191,7 @@ viewSeries ei si s =
             , name "weight"
             , Attr.min "0"
             , value <| Str.fromInt s.weight
-            , onInput <| UpdateExerciseSeriesWeight ei si
+            , onInput <| UpdateSession (SeriesWeight ei si)
             ]
             []
         , input
@@ -191,7 +200,7 @@ viewSeries ei si s =
             , Attr.max <| Str.fromInt maxReps
             , Attr.min <| Str.fromInt minReps
             , value <| Str.fromInt s.reps
-            , onInput <| UpdateExerciseSeriesReps ei si
+            , onInput <| UpdateSession (SeriesReps ei si)
             ]
             []
         , text <| Str.fromInt s.reps
@@ -205,7 +214,7 @@ viewExercise i e =
     <|
         append
             [ select
-                [ onInput <| UpdateExerciseName i
+                [ onInput <| UpdateSession (ExerciseName i)
                 , value e.name
                 ]
                 (List.map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
@@ -215,7 +224,7 @@ viewExercise i e =
 
 addExerciseButton : Html Msg
 addExerciseButton =
-    button [ onClick AddExercise ] [ text "+" ]
+    button [ onClick <| UpdateSession NewExercise "" ] [ text "+" ]
 
 
 addSendButton : Html Msg
