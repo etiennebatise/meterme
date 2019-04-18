@@ -21,24 +21,30 @@ import Platform.Sub as Sub
 import Set exposing (..)
 import String as Str
 
+
+
 -----------
 -- TYPES --
 -----------
+
 
 type alias Series =
     { reps : Int
     , weight : Int
     }
 
+
 type alias Exercise =
     { name : String
     , series : List Series
     }
 
+
 type alias Session =
     { date : String
     , workout : List Exercise
     }
+
 
 type SessionPart
     = Date
@@ -58,9 +64,12 @@ type Msg
 type alias Model =
     Session
 
+
+
 ------------
 -- UPDATE --
 ------------
+
 
 update : Msg -> Model -> ( Model, Cmd.Cmd Msg )
 update msg model =
@@ -98,25 +107,32 @@ updateModel model part value =
 
         ExerciseName index ->
             let
-                name = sessionWorkout
-                       |> Compose.lensWithOptional (list index)
-                       |> Compose.optionalWithLens exerciseName
+                name =
+                    sessionWorkout
+                        |> Compose.lensWithOptional (list index)
+                        |> Compose.optionalWithLens exerciseName
             in
-                name.set value model
+            name.set value model
 
         SeriesReps eIndex sIndex ->
             let
-                s = (sessionExerciseSeries eIndex sIndex) |> Compose.optionalWithLens seriesReps
-                v = Maybe.withDefault 0 <| Str.toInt value
+                s =
+                    sessionExerciseSeries eIndex sIndex |> Compose.optionalWithLens seriesReps
+
+                v =
+                    Maybe.withDefault 0 <| Str.toInt value
             in
-                s.set v model
+            s.set v model
 
         SeriesWeight eIndex sIndex ->
             let
-                s = (sessionExerciseSeries eIndex sIndex) |> Compose.optionalWithLens seriesWeight
-                v = Maybe.withDefault 0 <| Str.toInt value
+                s =
+                    sessionExerciseSeries eIndex sIndex |> Compose.optionalWithLens seriesWeight
+
+                v =
+                    Maybe.withDefault 0 <| Str.toInt value
             in
-                s.set v model
+            s.set v model
 
         NewExercise ->
             let
@@ -129,11 +145,14 @@ updateModel model part value =
                 m =
                     { model | workout = append model.workout newExercise }
             in
-                m
+            m
+
+
 
 ------------
 -- LENSES --
 -------------
+
 
 seriesReps : Lens Series Int
 seriesReps =
@@ -143,7 +162,6 @@ seriesReps =
 seriesWeight : Lens Series Int
 seriesWeight =
     Lens .weight (\b a -> { a | weight = b })
-
 
 
 exerciseName : Lens Exercise String
@@ -165,6 +183,7 @@ sessionWorkout : Lens Session (List Exercise)
 sessionWorkout =
     Lens .workout (\b a -> { a | workout = b })
 
+
 sessionExerciseSeries : Int -> Int -> Optional Session Series
 sessionExerciseSeries eIndex sIndex =
     sessionWorkout
@@ -172,9 +191,12 @@ sessionExerciseSeries eIndex sIndex =
         |> Compose.optionalWithLens exerciseSeries
         |> Compose.optionalWithOptional (list sIndex)
 
+
+
 ----------
 -- JSON --
 ----------
+
 
 encodeModel : Model -> Encode.Value
 encodeModel m =
@@ -200,9 +222,11 @@ encodeSeries s =
         ]
 
 
+
 -------------
 -- HELPERS --
 -------------
+
 
 initExercise : String -> Exercise
 initExercise n =
@@ -214,9 +238,11 @@ initSeries =
     Series 0 0
 
 
+
 ----------
 -- HTML --
 ----------
+
 
 datePicker : String -> Html Msg
 datePicker date =
