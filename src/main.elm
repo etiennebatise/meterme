@@ -11,6 +11,10 @@ import List exposing (..)
 import List.Extra as ListE
 import Maybe as Maybe
 import Maybe.Extra as MaybeE
+import Monocle.Common exposing (list)
+import Monocle.Compose as Compose
+import Monocle.Lens exposing (Lens)
+import Monocle.Optional exposing (Optional)
 import Platform exposing (..)
 import Platform.Cmd as Cmd
 import Platform.Sub as Sub
@@ -24,10 +28,54 @@ type alias Series =
     }
 
 
+seriesReps : Lens Series Int
+seriesReps =
+    Lens .reps (\b a -> { a | reps = b })
+
+
+seriesWeight : Lens Series Int
+seriesWeight =
+    Lens .weight (\b a -> { a | weight = b })
+
+
 type alias Exercise =
     { name : String
     , series : List Series
     }
+
+
+exerciseName : Lens Exercise String
+exerciseName =
+    Lens .name (\b a -> { a | name = b })
+
+
+exerciseSeries : Lens Exercise (List Series)
+exerciseSeries =
+    Lens .series (\b a -> { a | series = b })
+
+
+type alias Session =
+    { date : String
+    , workout : List Exercise
+    }
+
+
+sessionDate : Lens Session String
+sessionDate =
+    Lens .date (\b a -> { a | date = b })
+
+
+sessionWorkout : Lens Session (List Exercise)
+sessionWorkout =
+    Lens .workout (\b a -> { a | workout = b })
+
+sessionExerciseSeries : Int -> Int -> Optional Session Series
+sessionExerciseSeries eIndex sIndex =
+    sessionWorkout
+        |> Compose.lensWithOptional (list eIndex)
+        |> Compose.optionalWithLens exerciseSeries
+        |> Compose.optionalWithOptional (list sIndex)
+
 
 
 type SessionPart
@@ -47,9 +95,7 @@ type Msg
 
 
 type alias Model =
-    { date : String
-    , session : List Exercise
-    }
+    Session
 
 
 update : Msg -> Model -> ( Model, Cmd.Cmd Msg )
@@ -70,18 +116,18 @@ update msg model =
         AddExercise ->
             let
                 selected =
-                    List.map .name model.session
+                    List.map .name model.workout
 
                 newExercise =
                     MaybeE.unwrap [] (List.singleton << exercise) <| head <| remainingExercises selected
 
                 m =
-                    { model | session = append model.session newExercise }
+                    { model | workout = append model.workout newExercise }
             in
             ( m, Cmd.none )
 
         Uploaded _ ->
-            ( { model | session = [] }
+            ( { model | workout = [] }
             , let
                 a =
                     Debug.log "debug" model
@@ -97,36 +143,49 @@ updateModel : Model -> SessionPart -> String -> Model
 updateModel model part value =
     case part of
         Date ->
-            { model | date = value }
+            sessionDate.set value model
 
         ExerciseName index ->
-            { model | session = ListE.updateAt index (\e -> { e | name = value }) model.session }
+            let
+                name = sessionWorkout
+                       |> Compose.lensWithOptional (list index)
+                       |> Compose.optionalWithLens exerciseName
+            in
+                name.set value model
 
         SeriesReps eIndex sIndex ->
-            { model | session = ListE.updateAt eIndex (\e -> { e | series = ListE.updateAt sIndex (\s -> { s | reps = Maybe.withDefault 0 <| Str.toInt value }) e.series }) model.session }
+            let
+                s = (sessionExerciseSeries eIndex sIndex) |> Compose.optionalWithLens seriesReps
+                v = Maybe.withDefault 0 <| Str.toInt value
+            in
+                s.set v model
 
         SeriesWeight eIndex sIndex ->
-            { model | session = ListE.updateAt eIndex (\e -> { e | series = ListE.updateAt sIndex (\s -> { s | weight = Maybe.withDefault 0 <| Str.toInt value }) e.series }) model.session }
+            let
+                s = (sessionExerciseSeries eIndex sIndex) |> Compose.optionalWithLens seriesWeight
+                v = Maybe.withDefault 0 <| Str.toInt value
+            in
+                s.set v model
 
         NewExercise ->
             let
                 selected =
-                    List.map .name model.session
+                    List.map .name model.workout
 
                 newExercise =
-                    MaybeE.unwrap [] (List.singleton << exercise) <| head <| remainingExercises selected
+                    MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
 
                 m =
-                    { model | session = append model.session newExercise }
+                    { model | workout = append model.workout newExercise }
             in
-            m
+                sessionWorkout.set (append)
 
 
 encodeModel : Model -> Encode.Value
 encodeModel m =
     Encode.object
         [ ( "date", Encode.string m.date )
-        , ( "session", Encode.list encodeExercise m.session )
+        , ( "workout", Encode.list encodeExercise m.workout )
         ]
 
 
@@ -146,8 +205,8 @@ encodeSeries s =
         ]
 
 
-exercise : String -> Exercise
-exercise n =
+initExercise : String -> Exercise
+initExercise n =
     Exercise n <| repeat 4 series
 
 
@@ -251,10 +310,10 @@ view model =
             label [] [ datePicker model.date ]
 
         exercises =
-            viewExercises model.session
+            viewExercises model.workout
 
         modifierButton =
-            if length model.session == 4 then
+            if length model.workout == 4 then
                 addSendButton
 
             else
@@ -277,7 +336,7 @@ view model =
 
 init : Model
 init =
-    { date = "", session = [] }
+    { date = "", workout = [] }
 
 
 main : Program () Model Msg
