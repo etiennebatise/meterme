@@ -51,7 +51,6 @@ type SessionPart
 type Msg
     = NoOp
     | SubmitForm
-    | AddExercise
     | UpdateSession SessionPart String
     | Uploaded (Result Http.Error ())
 
@@ -77,19 +76,6 @@ update msg model =
                 , expect = Http.expectWhatever Uploaded
                 }
             )
-
-        AddExercise ->
-            let
-                selected =
-                    List.map .name model.workout
-
-                newExercise =
-                    MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
-
-                m =
-                    { model | workout = append model.workout newExercise }
-            in
-            ( m, Cmd.none )
 
         Uploaded _ ->
             ( { model | workout = [] }
