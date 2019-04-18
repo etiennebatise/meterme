@@ -21,62 +21,24 @@ import Platform.Sub as Sub
 import Set exposing (..)
 import String as Str
 
+-----------
+-- TYPES --
+-----------
 
 type alias Series =
     { reps : Int
     , weight : Int
     }
 
-
-seriesReps : Lens Series Int
-seriesReps =
-    Lens .reps (\b a -> { a | reps = b })
-
-
-seriesWeight : Lens Series Int
-seriesWeight =
-    Lens .weight (\b a -> { a | weight = b })
-
-
 type alias Exercise =
     { name : String
     , series : List Series
     }
 
-
-exerciseName : Lens Exercise String
-exerciseName =
-    Lens .name (\b a -> { a | name = b })
-
-
-exerciseSeries : Lens Exercise (List Series)
-exerciseSeries =
-    Lens .series (\b a -> { a | series = b })
-
-
 type alias Session =
     { date : String
     , workout : List Exercise
     }
-
-
-sessionDate : Lens Session String
-sessionDate =
-    Lens .date (\b a -> { a | date = b })
-
-
-sessionWorkout : Lens Session (List Exercise)
-sessionWorkout =
-    Lens .workout (\b a -> { a | workout = b })
-
-sessionExerciseSeries : Int -> Int -> Optional Session Series
-sessionExerciseSeries eIndex sIndex =
-    sessionWorkout
-        |> Compose.lensWithOptional (list eIndex)
-        |> Compose.optionalWithLens exerciseSeries
-        |> Compose.optionalWithOptional (list sIndex)
-
-
 
 type SessionPart
     = Date
@@ -97,6 +59,9 @@ type Msg
 type alias Model =
     Session
 
+------------
+-- UPDATE --
+------------
 
 update : Msg -> Model -> ( Model, Cmd.Cmd Msg )
 update msg model =
@@ -119,7 +84,7 @@ update msg model =
                     List.map .name model.workout
 
                 newExercise =
-                    MaybeE.unwrap [] (List.singleton << exercise) <| head <| remainingExercises selected
+                    MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
 
                 m =
                     { model | workout = append model.workout newExercise }
@@ -178,8 +143,52 @@ updateModel model part value =
                 m =
                     { model | workout = append model.workout newExercise }
             in
-                sessionWorkout.set (append)
+                m
 
+------------
+-- LENSES --
+-------------
+
+seriesReps : Lens Series Int
+seriesReps =
+    Lens .reps (\b a -> { a | reps = b })
+
+
+seriesWeight : Lens Series Int
+seriesWeight =
+    Lens .weight (\b a -> { a | weight = b })
+
+
+
+exerciseName : Lens Exercise String
+exerciseName =
+    Lens .name (\b a -> { a | name = b })
+
+
+exerciseSeries : Lens Exercise (List Series)
+exerciseSeries =
+    Lens .series (\b a -> { a | series = b })
+
+
+sessionDate : Lens Session String
+sessionDate =
+    Lens .date (\b a -> { a | date = b })
+
+
+sessionWorkout : Lens Session (List Exercise)
+sessionWorkout =
+    Lens .workout (\b a -> { a | workout = b })
+
+sessionExerciseSeries : Int -> Int -> Optional Session Series
+sessionExerciseSeries eIndex sIndex =
+    sessionWorkout
+        |> Compose.lensWithOptional (list eIndex)
+        |> Compose.optionalWithLens exerciseSeries
+        |> Compose.optionalWithOptional (list sIndex)
+
+----------
+-- JSON --
+----------
 
 encodeModel : Model -> Encode.Value
 encodeModel m =
@@ -205,15 +214,23 @@ encodeSeries s =
         ]
 
 
+-------------
+-- HELPERS --
+-------------
+
 initExercise : String -> Exercise
 initExercise n =
-    Exercise n <| repeat 4 series
+    Exercise n <| repeat 4 initSeries
 
 
-series : Series
-series =
+initSeries : Series
+initSeries =
     Series 0 0
 
+
+----------
+-- HTML --
+----------
 
 datePicker : String -> Html Msg
 datePicker date =
