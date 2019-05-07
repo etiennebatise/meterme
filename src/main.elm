@@ -44,7 +44,7 @@ type alias Exercise =
 
 type alias Session =
     { date : String
-    , workout : List Exercise
+    , exercises : List Exercise
     }
 
 
@@ -99,7 +99,7 @@ update msg model =
             )
 
         Uploaded _ ->
-            ( { model | workout = [] }
+            ( { model | exercises = [] }
             , let
                 a =
                     Debug.log "debug" model
@@ -120,7 +120,7 @@ updateModel model part value =
         ExerciseName index ->
             let
                 name =
-                    sessionWorkout
+                    sessionExercises
                         |> MCompose.lensWithOptional (MCommon.list index)
                         |> MCompose.optionalWithLens exerciseName
             in
@@ -149,17 +149,17 @@ updateModel model part value =
         NewExercise ->
             let
                 selected =
-                    List.map .name model.workout
+                    List.map .name model.exercises
 
-                newExercise =
+                e =
                     MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
             in
-            { model | workout = append model.workout newExercise }
+                Lens.modify sessionExercises (\l -> l ++ e) model
 
         NewSerie eIndex ->
             let
                 s =
-                    sessionWorkout
+                    sessionExercises
                         |> MCompose.lensWithOptional (MCommon.list eIndex)
                         |> MCompose.optionalWithLens exerciseSeries
             in
@@ -168,7 +168,7 @@ updateModel model part value =
         RemoveSerie eIndex ->
             let
                 s =
-                    sessionWorkout
+                    sessionExercises
                         |> MCompose.lensWithOptional (MCommon.list eIndex)
                         |> MCompose.optionalWithLens exerciseSeries
             in
@@ -206,14 +206,14 @@ sessionDate =
     Lens .date (\b a -> { a | date = b })
 
 
-sessionWorkout : Lens Session (List Exercise)
-sessionWorkout =
-    Lens .workout (\b a -> { a | workout = b })
+sessionExercises : Lens Session (List Exercise)
+sessionExercises =
+    Lens .exercises (\b a -> { a | exercises = b })
 
 
 sessionExerciseSerie : Int -> Int -> Optional Session Serie
 sessionExerciseSerie eIndex sIndex =
-    sessionWorkout
+    sessionExercises
         |> MCompose.lensWithOptional (MCommon.list eIndex)
         |> MCompose.optionalWithLens exerciseSeries
         |> MCompose.optionalWithOptional (MCommon.list sIndex)
@@ -229,7 +229,7 @@ encodeModel : Model -> Encode.Value
 encodeModel m =
     Encode.object
         [ ( "date", Encode.string m.date )
-        , ( "workout", Encode.list encodeExercise m.workout )
+        , ( "exercises", Encode.list encodeExercise m.exercises )
         ]
 
 
@@ -387,10 +387,10 @@ view model =
             label [] [ datePicker model.date ]
 
         exercises =
-            viewExercises model.workout
+            viewExercises model.exercises
 
         modifierButton =
-            if length model.workout == length exerciseList then
+            if length model.exercises == length exerciseList then
                 addSendButton
 
             else
@@ -406,7 +406,7 @@ view model =
 
 init : Model
 init =
-    { date = "", workout = [] }
+    { date = "", exercises = [] }
 
 
 main : Program () Model Msg
