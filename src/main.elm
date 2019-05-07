@@ -46,11 +46,12 @@ type alias Session =
     }
 
 
-type ExerciseIndex = ExerciseIndex Int
+type ExerciseIndex
+    = ExerciseIndex Int
 
 
-type alias SerieIndex =
-    Int
+type SerieIndex
+    = SerieIndex Int
 
 
 type SessionPart
@@ -133,7 +134,7 @@ updateModel model part value =
             in
             Lens.modify sessionExercises (\l -> l ++ e) model
 
-        NewSerie  ei ->
+        NewSerie ei ->
             Optional.modify (sessionExerciseSeries ei) (\l -> l ++ [ initSerie ]) model
 
         RemoveSerie ei ->
@@ -191,7 +192,7 @@ sessionExerciseSeries (ExerciseIndex ei) =
 
 
 sessionExerciseSerie : ExerciseIndex -> SerieIndex -> Optional Session Serie
-sessionExerciseSerie ei si =
+sessionExerciseSerie ei (SerieIndex si) =
     sessionExerciseSeries ei
         |> MCompose.optionalWithOptional (MCommon.list si)
 
@@ -294,32 +295,41 @@ remainingExercises l =
 
 
 viewSerie : ExerciseIndex -> Int -> Serie -> Html Msg
-viewSerie ei si s =
+viewSerie ei i s =
     let
         minReps =
             0
 
         maxReps =
             12
+
+        si =
+            SerieIndex i
+
+        weightInput =
+            input
+                [ type_ "number"
+                , name "weight"
+                , Attr.min "0"
+                , value <| Str.fromInt s.weight
+                , onInput <| UpdateSession (SerieWeight ei si)
+                ]
+                []
+
+        repsInput =
+            input
+                [ type_ "range"
+                , name "reps"
+                , Attr.max <| Str.fromInt maxReps
+                , Attr.min <| Str.fromInt minReps
+                , value <| Str.fromInt s.reps
+                , onInput <| UpdateSession (SerieReps ei si)
+                ]
+                []
     in
     div []
-        [ input
-            [ type_ "number"
-            , name "weight"
-            , Attr.min "0"
-            , value <| Str.fromInt s.weight
-            , onInput <| UpdateSession (SerieWeight ei si)
-            ]
-            []
-        , input
-            [ type_ "range"
-            , name "reps"
-            , Attr.max <| Str.fromInt maxReps
-            , Attr.min <| Str.fromInt minReps
-            , value <| Str.fromInt s.reps
-            , onInput <| UpdateSession (SerieReps ei si)
-            ]
-            []
+        [ weightInput
+        , repsInput
         , text <| Str.fromInt s.reps
         ]
 
@@ -327,7 +337,9 @@ viewSerie ei si s =
 viewExercise : Int -> Exercise -> Html Msg
 viewExercise i e =
     let
-        ei = ExerciseIndex i
+        ei =
+            ExerciseIndex i
+
         nameSelector =
             select
                 [ onInput <| UpdateSession (ExerciseName ei)
