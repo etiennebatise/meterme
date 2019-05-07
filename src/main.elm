@@ -13,10 +13,8 @@ import Maybe as Maybe
 import Maybe.Extra as MaybeE
 import Monocle.Common as MCommon
 import Monocle.Compose as MCompose
-import Monocle.Lens as Lens
-import Monocle.Lens exposing (Lens)
-import Monocle.Optional as Optional
-import Monocle.Optional exposing (Optional)
+import Monocle.Lens as Lens exposing (Lens)
+import Monocle.Optional as Optional exposing (Optional)
 import Platform exposing (..)
 import Platform.Cmd as Cmd
 import Platform.Sub as Sub
@@ -48,8 +46,7 @@ type alias Session =
     }
 
 
-type alias ExerciseIndex =
-    Int
+type ExerciseIndex = ExerciseIndex Int
 
 
 type alias SerieIndex =
@@ -118,33 +115,13 @@ updateModel model part value =
             sessionDate.set value model
 
         ExerciseName index ->
-            let
-                name =
-                    sessionExercises
-                        |> MCompose.lensWithOptional (MCommon.list index)
-                        |> MCompose.optionalWithLens exerciseName
-            in
-            name.set value model
+            (sessionExerciseName index).set value model
 
-        SerieReps eIndex sIndex ->
-            let
-                s =
-                    sessionExerciseSerie eIndex sIndex |> MCompose.optionalWithLens serieReps
+        SerieReps ei si ->
+            (sessionExerciseSerieReps ei si).set (strToInt value) model
 
-                v =
-                    Maybe.withDefault 0 <| Str.toInt value
-            in
-            s.set v model
-
-        SerieWeight eIndex sIndex ->
-            let
-                s =
-                    sessionExerciseSerie eIndex sIndex |> MCompose.optionalWithLens serieWeight
-
-                v =
-                    Maybe.withDefault 0 <| Str.toInt value
-            in
-            s.set v model
+        SerieWeight ei si ->
+            (sessionExerciseSerieWeight ei si).set (strToInt value) model
 
         NewExercise ->
             let
@@ -154,25 +131,13 @@ updateModel model part value =
                 e =
                     MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
             in
-                Lens.modify sessionExercises (\l -> l ++ e) model
+            Lens.modify sessionExercises (\l -> l ++ e) model
 
-        NewSerie eIndex ->
-            let
-                s =
-                    sessionExercises
-                        |> MCompose.lensWithOptional (MCommon.list eIndex)
-                        |> MCompose.optionalWithLens exerciseSeries
-            in
-            Optional.modify s (\l -> l ++ [ initSerie ]) model
+        NewSerie  ei ->
+            Optional.modify (sessionExerciseSeries ei) (\l -> l ++ [ initSerie ]) model
 
-        RemoveSerie eIndex ->
-            let
-                s =
-                    sessionExercises
-                        |> MCompose.lensWithOptional (MCommon.list eIndex)
-                        |> MCompose.optionalWithLens exerciseSeries
-            in
-            Optional.modify s initL model
+        RemoveSerie ei ->
+            Optional.modify (sessionExerciseSeries ei) initL model
 
 
 
@@ -211,12 +176,34 @@ sessionExercises =
     Lens .exercises (\b a -> { a | exercises = b })
 
 
-sessionExerciseSerie : Int -> Int -> Optional Session Serie
-sessionExerciseSerie eIndex sIndex =
+sessionExerciseName : ExerciseIndex -> Optional Session String
+sessionExerciseName (ExerciseIndex i) =
     sessionExercises
-        |> MCompose.lensWithOptional (MCommon.list eIndex)
+        |> MCompose.lensWithOptional (MCommon.list i)
+        |> MCompose.optionalWithLens exerciseName
+
+
+sessionExerciseSeries : ExerciseIndex -> Optional Session (List Serie)
+sessionExerciseSeries (ExerciseIndex ei) =
+    sessionExercises
+        |> MCompose.lensWithOptional (MCommon.list ei)
         |> MCompose.optionalWithLens exerciseSeries
-        |> MCompose.optionalWithOptional (MCommon.list sIndex)
+
+
+sessionExerciseSerie : ExerciseIndex -> SerieIndex -> Optional Session Serie
+sessionExerciseSerie ei si =
+    sessionExerciseSeries ei
+        |> MCompose.optionalWithOptional (MCommon.list si)
+
+
+sessionExerciseSerieReps : ExerciseIndex -> SerieIndex -> Optional Session Int
+sessionExerciseSerieReps ei si =
+    sessionExerciseSerie ei si |> MCompose.optionalWithLens serieReps
+
+
+sessionExerciseSerieWeight : ExerciseIndex -> SerieIndex -> Optional Session Int
+sessionExerciseSerieWeight ei si =
+    sessionExerciseSerie ei si |> MCompose.optionalWithLens serieWeight
 
 
 
@@ -247,6 +234,11 @@ encodeSerie s =
         [ ( "weight", Encode.int s.weight )
         , ( "reps", Encode.int s.reps )
         ]
+
+
+strToInt : String -> Int
+strToInt s =
+    Maybe.withDefault 0 <| Str.toInt s
 
 
 
@@ -301,7 +293,7 @@ remainingExercises l =
     toList <| diff (fromList exerciseList) (fromList l)
 
 
-viewSerie : Int -> Int -> Serie -> Html Msg
+viewSerie : ExerciseIndex -> Int -> Serie -> Html Msg
 viewSerie ei si s =
     let
         minReps =
@@ -335,21 +327,22 @@ viewSerie ei si s =
 viewExercise : Int -> Exercise -> Html Msg
 viewExercise i e =
     let
+        ei = ExerciseIndex i
         nameSelector =
             select
-                [ onInput <| UpdateSession (ExerciseName i)
+                [ onInput <| UpdateSession (ExerciseName ei)
                 , value e.name
                 ]
                 (List.map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
 
         series =
-            indexedMap (viewSerie i) e.series
+            indexedMap (viewSerie ei) e.series
 
         addSerieButton =
-            button [ onClick <| UpdateSession (NewSerie i) "" ] [ text "add series" ]
+            button [ onClick <| UpdateSession (NewSerie ei) "" ] [ text "add series" ]
 
         removeSerieButton =
-            button [ onClick <| UpdateSession (RemoveSerie i) "" ] [ text "remove series" ]
+            button [ onClick <| UpdateSession (RemoveSerie ei) "" ] [ text "remove series" ]
     in
     div
         []
