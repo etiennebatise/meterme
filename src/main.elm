@@ -30,7 +30,7 @@ import String as Str
 -----------
 
 
-type alias Series =
+type alias Serie =
     { reps : Int
     , weight : Int
     }
@@ -38,7 +38,7 @@ type alias Series =
 
 type alias Exercise =
     { name : String
-    , series : List Series
+    , series : List Serie
     }
 
 
@@ -52,7 +52,7 @@ type alias ExerciseIndex =
     Int
 
 
-type alias SeriesIndex =
+type alias SerieIndex =
     Int
 
 
@@ -60,10 +60,10 @@ type SessionPart
     = Date
     | NewExercise
     | ExerciseName ExerciseIndex
-    | SeriesReps ExerciseIndex SeriesIndex
-    | SeriesWeight ExerciseIndex SeriesIndex
-    | NewSeries ExerciseIndex
-    | RemoveSeries ExerciseIndex
+    | SerieReps ExerciseIndex SerieIndex
+    | SerieWeight ExerciseIndex SerieIndex
+    | NewSerie ExerciseIndex
+    | RemoveSerie ExerciseIndex
 
 
 type Msg
@@ -126,20 +126,20 @@ updateModel model part value =
             in
             name.set value model
 
-        SeriesReps eIndex sIndex ->
+        SerieReps eIndex sIndex ->
             let
                 s =
-                    sessionExerciseSeries eIndex sIndex |> MCompose.optionalWithLens seriesReps
+                    sessionExerciseSerie eIndex sIndex |> MCompose.optionalWithLens serieReps
 
                 v =
                     Maybe.withDefault 0 <| Str.toInt value
             in
             s.set v model
 
-        SeriesWeight eIndex sIndex ->
+        SerieWeight eIndex sIndex ->
             let
                 s =
-                    sessionExerciseSeries eIndex sIndex |> MCompose.optionalWithLens seriesWeight
+                    sessionExerciseSerie eIndex sIndex |> MCompose.optionalWithLens serieWeight
 
                 v =
                     Maybe.withDefault 0 <| Str.toInt value
@@ -156,16 +156,16 @@ updateModel model part value =
             in
             { model | workout = append model.workout newExercise }
 
-        NewSeries eIndex ->
+        NewSerie eIndex ->
             let
                 s =
                     sessionWorkout
                         |> MCompose.lensWithOptional (MCommon.list eIndex)
                         |> MCompose.optionalWithLens exerciseSeries
             in
-            Optional.modify s (\l -> l ++ [ initSeries ]) model
+            Optional.modify s (\l -> l ++ [ initSerie ]) model
 
-        RemoveSeries eIndex ->
+        RemoveSerie eIndex ->
             let
                 s =
                     sessionWorkout
@@ -181,13 +181,13 @@ updateModel model part value =
 -------------
 
 
-seriesReps : Lens Series Int
-seriesReps =
+serieReps : Lens Serie Int
+serieReps =
     Lens .reps (\b a -> { a | reps = b })
 
 
-seriesWeight : Lens Series Int
-seriesWeight =
+serieWeight : Lens Serie Int
+serieWeight =
     Lens .weight (\b a -> { a | weight = b })
 
 
@@ -196,7 +196,7 @@ exerciseName =
     Lens .name (\b a -> { a | name = b })
 
 
-exerciseSeries : Lens Exercise (List Series)
+exerciseSeries : Lens Exercise (List Serie)
 exerciseSeries =
     Lens .series (\b a -> { a | series = b })
 
@@ -211,8 +211,8 @@ sessionWorkout =
     Lens .workout (\b a -> { a | workout = b })
 
 
-sessionExerciseSeries : Int -> Int -> Optional Session Series
-sessionExerciseSeries eIndex sIndex =
+sessionExerciseSerie : Int -> Int -> Optional Session Serie
+sessionExerciseSerie eIndex sIndex =
     sessionWorkout
         |> MCompose.lensWithOptional (MCommon.list eIndex)
         |> MCompose.optionalWithLens exerciseSeries
@@ -237,12 +237,12 @@ encodeExercise : Exercise -> Encode.Value
 encodeExercise e =
     Encode.object
         [ ( "name", Encode.string e.name )
-        , ( "series", Encode.list encodeSeries e.series )
+        , ( "series", Encode.list encodeSerie e.series )
         ]
 
 
-encodeSeries : Series -> Encode.Value
-encodeSeries s =
+encodeSerie : Serie -> Encode.Value
+encodeSerie s =
     Encode.object
         [ ( "weight", Encode.int s.weight )
         , ( "reps", Encode.int s.reps )
@@ -262,12 +262,12 @@ defaultNumberOfSeries =
 
 initExercise : String -> Exercise
 initExercise n =
-    Exercise n <| repeat defaultNumberOfSeries initSeries
+    Exercise n <| repeat defaultNumberOfSeries initSerie
 
 
-initSeries : Series
-initSeries =
-    Series 0 0
+initSerie : Serie
+initSerie =
+    Serie 0 0
 
 
 initL : List a -> List a
@@ -301,8 +301,8 @@ remainingExercises l =
     toList <| diff (fromList exerciseList) (fromList l)
 
 
-viewSeries : Int -> Int -> Series -> Html Msg
-viewSeries ei si s =
+viewSerie : Int -> Int -> Serie -> Html Msg
+viewSerie ei si s =
     let
         minReps =
             0
@@ -316,7 +316,7 @@ viewSeries ei si s =
             , name "weight"
             , Attr.min "0"
             , value <| Str.fromInt s.weight
-            , onInput <| UpdateSession (SeriesWeight ei si)
+            , onInput <| UpdateSession (SerieWeight ei si)
             ]
             []
         , input
@@ -325,7 +325,7 @@ viewSeries ei si s =
             , Attr.max <| Str.fromInt maxReps
             , Attr.min <| Str.fromInt minReps
             , value <| Str.fromInt s.reps
-            , onInput <| UpdateSession (SeriesReps ei si)
+            , onInput <| UpdateSession (SerieReps ei si)
             ]
             []
         , text <| Str.fromInt s.reps
@@ -343,18 +343,18 @@ viewExercise i e =
                 (List.map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
 
         series =
-            indexedMap (viewSeries i) e.series
+            indexedMap (viewSerie i) e.series
 
-        addSeriesButton =
-            button [ onClick <| UpdateSession (NewSeries i) "" ] [ text "add series" ]
+        addSerieButton =
+            button [ onClick <| UpdateSession (NewSerie i) "" ] [ text "add series" ]
 
-        removeSeriesButton =
-            button [ onClick <| UpdateSession (RemoveSeries i) "" ] [ text "remove series" ]
+        removeSerieButton =
+            button [ onClick <| UpdateSession (RemoveSerie i) "" ] [ text "remove series" ]
     in
     div
         []
     <|
-        [ nameSelector, addSeriesButton, removeSeriesButton ]
+        [ nameSelector, addSerieButton, removeSerieButton ]
             ++ series
 
 
