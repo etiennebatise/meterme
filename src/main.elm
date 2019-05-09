@@ -27,10 +27,14 @@ import String as Str
 -- TYPES --
 -----------
 
+type alias Weight = Float
+
+strToWeight : String -> Weight
+strToWeight s = Maybe.withDefault 0.0 <| Str.toFloat s
 
 type alias Serie =
     { reps : Int
-    , weight : Int
+    , weight : Weight
     }
 
 
@@ -122,7 +126,7 @@ updateModel model part value =
             (sessionExerciseSerieReps ei si).set (strToInt value) model
 
         SerieWeight ei si ->
-            (sessionExerciseSerieWeight ei si).set (strToInt value) model
+            (sessionExerciseSerieWeight ei si).set (strToWeight value) model
 
         NewExercise ->
             let
@@ -152,7 +156,7 @@ serieReps =
     Lens .reps (\b a -> { a | reps = b })
 
 
-serieWeight : Lens Serie Int
+serieWeight : Lens Serie Weight
 serieWeight =
     Lens .weight (\b a -> { a | weight = b })
 
@@ -202,7 +206,7 @@ sessionExerciseSerieReps ei si =
     sessionExerciseSerie ei si |> MCompose.optionalWithLens serieReps
 
 
-sessionExerciseSerieWeight : ExerciseIndex -> SerieIndex -> Optional Session Int
+sessionExerciseSerieWeight : ExerciseIndex -> SerieIndex -> Optional Session Weight
 sessionExerciseSerieWeight ei si =
     sessionExerciseSerie ei si |> MCompose.optionalWithLens serieWeight
 
@@ -232,7 +236,7 @@ encodeExercise e =
 encodeSerie : Serie -> Encode.Value
 encodeSerie s =
     Encode.object
-        [ ( "weight", Encode.int s.weight )
+        [ ( "weight", Encode.float s.weight )
         , ( "reps", Encode.int s.reps )
         ]
 
@@ -311,7 +315,8 @@ viewSerie ei i s =
                 [ type_ "number"
                 , name "weight"
                 , Attr.min "0"
-                , value <| Str.fromInt s.weight
+                , step "0.5"
+                , value <| Str.fromFloat s.weight
                 , onInput <| UpdateSession (SerieWeight ei si)
                 ]
                 []
