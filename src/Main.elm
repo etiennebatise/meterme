@@ -86,6 +86,7 @@ type alias Error =
 type Msg
     = NoOp
     | SubmitForm
+    | CancelForm
     | UpdateSession SessionPart String
     | Uploaded (Result Http.Error ())
 
@@ -108,6 +109,9 @@ update msg model =
     case msg of
         NoOp ->
             ( model, Cmd.none )
+
+        CancelForm ->
+            ( { model | session = initSession }, Cmd.none)
 
         SubmitForm ->
             case Validate.validate sessionValidator model.session of
@@ -422,6 +426,9 @@ addSendButton : Html Msg
 addSendButton =
     button buttonModifiers [ onClick SubmitForm ] [ text "OK" ]
 
+viewCancelButton : Html Msg
+viewCancelButton =
+    button buttonModifiers [ onClick CancelForm ] [ text "Cancel"]
 
 viewExercisesInput : List Exercise -> List (Html Msg)
 viewExercisesInput exs =
@@ -496,9 +503,10 @@ view model =
 
             else
                 addExerciseButton
+        cancelButton = viewCancelButton
 
         sessionForm =
-            div [ id "session-form" ] ([ dateLabel ] ++ exercises ++ [ modifierButton ])
+            div [ id "session-form" ] ([ dateLabel ] ++ exercises ++ [ modifierButton, viewCancelButton])
 
         errors =
             div [ id "session-form-errors" ] (List.map (p [] << List.singleton << text << second) model.errors)
@@ -512,10 +520,12 @@ view model =
     in
     Browser.Document "Meterme" body
 
+initSession : Session
+initSession = { date = "", exercises = [] }
 
 init : Model
 init =
-    Model initFakeHistory { date = "", exercises = [] } []
+    Model initFakeHistory initSession []
 
 initFakeHistory : List Session
 initFakeHistory =
