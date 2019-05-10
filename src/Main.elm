@@ -1,8 +1,11 @@
 module Main exposing (Model, Msg(..), init, main, update, view)
 
 import Browser
+import Bulma.CDN exposing (..)
+import Bulma.Elements exposing (table, tableModifiers, tableRow, tableCell, button, buttonModifiers)
+import Bulma.Form exposing (controlSelectModifiers, controlSelect, controlInput, controlInputModifiers)
 import Debug
-import Html exposing (..)
+import Html exposing (Html, div, input, option, p, select, text)
 import Html.Attributes as Attr exposing (..)
 import Html.Events exposing (..)
 import Http
@@ -109,7 +112,7 @@ update msg model =
         SubmitForm ->
             case Validate.validate sessionValidator model.session of
                 Ok validSession ->
-                    ( model
+                    ( { model | errors = [] }
                     , Http.post
                         { url = "http://localhost:80/anything"
                         , body = Http.jsonBody <| encodeSession <| Validate.fromValid validSession
@@ -318,7 +321,9 @@ viewSessionErrors l =
 
 datePicker : String -> Html Msg
 datePicker date =
-    input
+    controlInput
+        controlInputModifiers
+        []
         [ type_ "date"
         , onInput <| \d -> UpdateSession Date d
         , value date
@@ -384,7 +389,9 @@ viewExerciseInput i e =
             ExerciseIndex i
 
         nameSelector =
-            select
+            controlSelect
+                controlSelectModifiers
+                []
                 [ onInput <| UpdateSession (ExerciseName ei)
                 , value e.name
                 ]
@@ -394,10 +401,10 @@ viewExerciseInput i e =
             indexedMap (viewSerieInput ei) e.series
 
         addSerieButton =
-            button [ onClick <| UpdateSession (NewSerie ei) "" ] [ text "add series" ]
+            button buttonModifiers [ onClick <| UpdateSession (NewSerie ei) "" ] [ text "add series" ]
 
         removeSerieButton =
-            button [ onClick <| UpdateSession (RemoveSerie ei) "" ] [ text "remove series" ]
+            button buttonModifiers [ onClick <| UpdateSession (RemoveSerie ei) "" ] [ text "remove series" ]
     in
     div
         []
@@ -408,12 +415,12 @@ viewExerciseInput i e =
 
 addExerciseButton : Html Msg
 addExerciseButton =
-    button [ onClick <| UpdateSession NewExercise "" ] [ text "+" ]
+    button buttonModifiers [ onClick <| UpdateSession NewExercise "" ] [ text "+" ]
 
 
 addSendButton : Html Msg
 addSendButton =
-    button [ onClick SubmitForm ] [ text "OK" ]
+    button buttonModifiers [ onClick SubmitForm ] [ text "OK" ]
 
 
 viewExercisesInput : List Exercise -> List (Html Msg)
@@ -430,24 +437,35 @@ viewExercisesInput exs =
 
 viewHistory : List Session -> Html Msg
 viewHistory l =
-    div
-        [ id "history" ]
-        (List.map viewSession l)
+    let
+        elem =
+            div
+                [ id "history" ]
+                (List.map viewSession l)
+
+        mods = { bordered = False
+               , striped = True
+               , narrow = False
+               , hoverable = True
+               , fullWidth = True
+               }
+    in
+    table mods [ id "history" ] (List.map viewSession l)
 
 
 viewSession : Session -> Html Msg
 viewSession s =
-    div
-        [ class "session-history" ]
-    <|
-        [ p [] [ text "Session: ", text s.date ]
-        ]
-            ++ List.map viewExercise s.exercises
+    let attrs = [ class "session-history" ]
+        cells = [ tableCell [] [ text s.date ]
+                ]
+                ++ List.map viewExercise s.exercises
+    in
+        tableRow False attrs cells
 
 
 viewExercise : Exercise -> Html Msg
 viewExercise e =
-    div
+    tableCell
         [ class "exercise-history" ]
     <|
         [ p [] [ text e.name ] ]
@@ -458,7 +476,7 @@ viewSerie : Serie -> Html Msg
 viewSerie s =
     let
         str =
-            Str.fromInt s.reps ++ " x " ++ Str.fromFloat s.weight ++ "kg"
+            Str.fromInt s.reps ++ " x " ++ Str.fromFloat s.weight ++ " kg"
     in
     p [ class "serie-history" ] [ text str ]
 
@@ -486,7 +504,8 @@ view model =
             div [ id "session-form-errors" ] (List.map (p [] << List.singleton << text << second) model.errors)
 
         body =
-            [ sessionForm
+            [ stylesheet
+            , sessionForm
             , errors
             , viewHistory model.history
             ]
@@ -496,7 +515,28 @@ view model =
 
 init : Model
 init =
-    Model [] { date = "", exercises = [] } []
+    Model initFakeHistory { date = "", exercises = [] } []
+
+initFakeHistory : List Session
+initFakeHistory =
+    [
+      { date = "date1"
+      , exercises =
+            [ initExercise "fake1.1"
+            , initExercise "fake1.2"
+            , initExercise "fake1.3"
+            , initExercise "fake1.4"
+            ]
+      }
+    , { date = "date2"
+      , exercises =
+            [ initExercise "fake2.1"
+            , initExercise "fake2.2"
+            , initExercise "fake2.3"
+            , initExercise "fake2.4"
+            ]
+      }
+    ]
 
 
 main : Program () Model Msg
