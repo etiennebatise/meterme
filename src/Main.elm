@@ -18,8 +18,11 @@ import Monocle.Optional as Optional exposing (Optional)
 import Platform exposing (..)
 import Platform.Cmd as Cmd
 import Platform.Sub as Sub
+import Result exposing (..)
 import Set exposing (..)
 import String as Str
+import Tuple exposing (..)
+import Validate
 
 
 
@@ -73,6 +76,10 @@ type SessionPart
     | RemoveSerie ExerciseIndex
 
 
+type alias Error =
+    ( SessionPart, String )
+
+
 type Msg
     = NoOp
     | SubmitForm
@@ -81,7 +88,10 @@ type Msg
 
 
 type alias Model =
-    Session
+    { history : List Session
+    , session : Session
+    , errors : List Error
+    }
 
 
 
@@ -97,16 +107,21 @@ update msg model =
             ( model, Cmd.none )
 
         SubmitForm ->
-            ( model
-            , Http.post
-                { url = "http://localhost:80/anything"
-                , body = Http.jsonBody <| encodeModel model
-                , expect = Http.expectWhatever Uploaded
-                }
-            )
+            case Validate.validate sessionValidator model.session of
+                Ok validSession ->
+                    ( model
+                    , Http.post
+                        { url = "http://localhost:80/anything"
+                        , body = Http.jsonBody <| encodeSession <| Validate.fromValid validSession
+                        , expect = Http.expectWhatever Uploaded
+                        }
+                    )
+
+                Err validationErrors ->
+                    ( { model | errors = validationErrors }, Cmd.none )
 
         Uploaded _ ->
-            ( { model | exercises = [] }
+            ( { model | history = model.history ++ [ model.session ], session = Session "" [] }
             , let
                 a =
                     Debug.log "debug" model
@@ -115,39 +130,39 @@ update msg model =
             )
 
         UpdateSession part value ->
-            ( updateModel model part value, Cmd.none )
+            ( { model | session = updateSession model.session part value }, Cmd.none )
 
 
-updateModel : Model -> SessionPart -> String -> Model
-updateModel model part value =
+updateSession : Session -> SessionPart -> String -> Session
+updateSession session part value =
     case part of
         Date ->
-            sessionDate.set value model
+            sessionDate.set value session
 
         ExerciseName index ->
-            (sessionExerciseName index).set value model
+            (sessionExerciseName index).set value session
 
         SerieReps ei si ->
-            (sessionExerciseSerieReps ei si).set (strToInt value) model
+            (sessionExerciseSerieReps ei si).set (strToInt value) session
 
         SerieWeight ei si ->
-            (sessionExerciseSerieWeight ei si).set (strToWeight value) model
+            (sessionExerciseSerieWeight ei si).set (strToWeight value) session
 
         NewExercise ->
             let
                 selected =
-                    List.map .name model.exercises
+                    List.map .name session.exercises
 
                 e =
                     MaybeE.unwrap [] (List.singleton << initExercise) <| head <| remainingExercises selected
             in
-            Lens.modify sessionExercises (\l -> l ++ e) model
+            Lens.modify sessionExercises (\l -> l ++ e) session
 
         NewSerie ei ->
-            Optional.modify (sessionExerciseSeries ei) (\l -> l ++ [ initSerie ]) model
+            Optional.modify (sessionExerciseSeries ei) (\l -> l ++ [ initSerie ]) session
 
         RemoveSerie ei ->
-            Optional.modify (sessionExerciseSeries ei) initL model
+            Optional.modify (sessionExerciseSeries ei) initL session
 
 
 
@@ -222,11 +237,11 @@ sessionExerciseSerieWeight ei si =
 ----------
 
 
-encodeModel : Model -> Encode.Value
-encodeModel m =
+encodeSession : Session -> Encode.Value
+encodeSession s =
     Encode.object
-        [ ( "date", Encode.string m.date )
-        , ( "exercises", Encode.list encodeExercise m.exercises )
+        [ ( "date", Encode.string s.date )
+        , ( "exercises", Encode.list encodeExercise s.exercises )
         ]
 
 
@@ -278,9 +293,27 @@ initL l =
 
 
 
+----------------
+-- VALIDATION --
+----------------
+
+
+sessionValidator : Validate.Validator Error Session
+sessionValidator =
+    Validate.all
+        [ Validate.ifBlank .date ( Date, "Date can't be blank." )
+        ]
+
+
+
 ----------
 -- HTML --
 ----------
+
+
+viewSessionErrors : List Error -> Html Msg
+viewSessionErrors l =
+    div [] (List.map (\( e, s ) -> p [] <| List.singleton <| text s) l)
 
 
 datePicker : String -> Html Msg
@@ -303,8 +336,8 @@ remainingExercises l =
     toList <| diff (fromList exerciseList) (fromList l)
 
 
-viewSerie : ExerciseIndex -> Int -> Serie -> Html Msg
-viewSerie ei i s =
+viewSerieInput : ExerciseIndex -> Int -> Serie -> Html Msg
+viewSerieInput ei i s =
     let
         minReps =
             0
@@ -344,8 +377,8 @@ viewSerie ei i s =
         ]
 
 
-viewExercise : Int -> Exercise -> Html Msg
-viewExercise i e =
+viewExerciseInput : Int -> Exercise -> Html Msg
+viewExerciseInput i e =
     let
         ei =
             ExerciseIndex i
@@ -358,7 +391,7 @@ viewExercise i e =
                 (List.map (\x -> option [ value x, selected (x == e.name) ] [ text x ]) exerciseList)
 
         series =
-            indexedMap (viewSerie ei) e.series
+            indexedMap (viewSerieInput ei) e.series
 
         addSerieButton =
             button [ onClick <| UpdateSession (NewSerie ei) "" ] [ text "add series" ]
@@ -383,8 +416,8 @@ addSendButton =
     button [ onClick SubmitForm ] [ text "OK" ]
 
 
-viewExercises : List Exercise -> List (Html Msg)
-viewExercises exs =
+viewExercisesInput : List Exercise -> List (Html Msg)
+viewExercisesInput exs =
     let
         names =
             List.map .name exs
@@ -392,29 +425,70 @@ viewExercises exs =
         remaining i =
             remainingExercises <| take i names
     in
-    indexedMap viewExercise exs
+    indexedMap viewExerciseInput exs
+
+
+viewHistory : List Session -> Html Msg
+viewHistory l =
+    div
+        [ id "history" ]
+        (List.map viewSession l)
+
+
+viewSession : Session -> Html Msg
+viewSession s =
+    div
+        [ class "session-history" ]
+    <|
+        [ p [] [ text "Session: ", text s.date ]
+        ]
+            ++ List.map viewExercise s.exercises
+
+
+viewExercise : Exercise -> Html Msg
+viewExercise e =
+    div
+        [ class "exercise-history" ]
+    <|
+        [ p [] [ text e.name ] ]
+            ++ List.map viewSerie e.series
+
+
+viewSerie : Serie -> Html Msg
+viewSerie s =
+    let
+        str =
+            Str.fromInt s.reps ++ " x " ++ Str.fromFloat s.weight ++ "kg"
+    in
+    p [ class "serie-history" ] [ text str ]
 
 
 view : Model -> Browser.Document Msg
 view model =
     let
         dateLabel =
-            label [] [ datePicker model.date ]
+            datePicker model.session.date
 
         exercises =
-            viewExercises model.exercises
+            viewExercisesInput model.session.exercises
 
         modifierButton =
-            if length model.exercises == length exerciseList then
+            if length model.session.exercises == length exerciseList then
                 addSendButton
 
             else
                 addExerciseButton
 
+        sessionForm =
+            div [ id "session-form" ] ([ dateLabel ] ++ exercises ++ [ modifierButton ])
+
+        errors =
+            div [ id "session-form-errors" ] (List.map (p [] << List.singleton << text << second) model.errors)
+
         body =
-            [ div [] [ dateLabel ]
-            , div [] exercises
-            , div [] [ modifierButton ]
+            [ sessionForm
+            , errors
+            , viewHistory model.history
             ]
     in
     Browser.Document "Meterme" body
@@ -422,7 +496,7 @@ view model =
 
 init : Model
 init =
-    { date = "", exercises = [] }
+    Model [] { date = "", exercises = [] } []
 
 
 main : Program () Model Msg
