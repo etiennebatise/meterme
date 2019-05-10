@@ -27,10 +27,15 @@ import String as Str
 -- TYPES --
 -----------
 
-type alias Weight = Float
+
+type alias Weight =
+    Float
+
 
 strToWeight : String -> Weight
-strToWeight s = Maybe.withDefault 0.0 <| Str.toFloat s
+strToWeight s =
+    Maybe.withDefault 0.0 <| Str.toFloat s
+
 
 type alias Serie =
     { reps : Int
@@ -390,7 +395,7 @@ viewExercises exs =
     indexedMap viewExercise exs
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
     let
         dateLabel =
@@ -405,13 +410,14 @@ view model =
 
             else
                 addExerciseButton
+
+        body =
+            [ div [] [ dateLabel ]
+            , div [] exercises
+            , div [] [ modifierButton ]
+            ]
     in
-    div
-        []
-        [ div [] [ dateLabel ]
-        , div [] exercises
-        , div [] [ modifierButton ]
-        ]
+    Browser.Document "Meterme" body
 
 
 init : Model
@@ -421,7 +427,7 @@ init =
 
 main : Program () Model Msg
 main =
-    Browser.element
+    Browser.document
         { init = \flags -> ( init, Cmd.none )
         , subscriptions = \_ -> Sub.none
         , update = update
